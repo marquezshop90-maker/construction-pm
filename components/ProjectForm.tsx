@@ -5,79 +5,56 @@ import { createProject, updateProject } from '@/lib/supabase'
 import type { Project, ProjectInsert } from '@/lib/types'
 import { Save, ChevronDown, ChevronUp, Calculator } from 'lucide-react'
 
-// ─── Numeric input with comma formatting ─────────────────────────────────────
-function NumericInput({
-  value, onChange, placeholder = '', className = '', decimals = 2
-}: {
-  value: number | null
-  onChange: (v: number | null) => void
-  placeholder?: string
-  className?: string
-  decimals?: number
+// ─── All helper components defined OUTSIDE ProjectForm ────────────────────────
+// (if defined inside, React recreates them on every keystroke → inputs lose focus)
+
+function NumericInput({ value, onChange, placeholder = '', decimals = 2 }: {
+  value: number | null; onChange: (v: number | null) => void
+  placeholder?: string; decimals?: number
 }) {
   const [editing, setEditing] = useState(false)
-  const [raw, setRaw]         = useState('')
-
+  const [raw, setRaw] = useState('')
   const display = value != null
     ? value.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
     : ''
-
   return (
-    <input
-      type="text"
-      inputMode="decimal"
-      className={`form-input ${className}`}
-      value={editing ? raw : display}
-      placeholder={placeholder}
+    <input type="text" inputMode="decimal" className="form-input"
+      value={editing ? raw : display} placeholder={placeholder}
       onFocus={() => { setEditing(true); setRaw(value?.toString() ?? '') }}
       onChange={e => { if (editing) setRaw(e.target.value) }}
       onBlur={() => {
         setEditing(false)
         const n = parseFloat(raw.replace(/,/g, ''))
         onChange(isNaN(n) ? null : n)
-      }}
-    />
+      }} />
   )
 }
 
-// ─── Integer input with comma formatting ─────────────────────────────────────
-function IntegerInput({
-  value, onChange, placeholder = ''
-}: {
-  value: number | null
-  onChange: (v: number | null) => void
-  placeholder?: string
+function IntegerInput({ value, onChange, placeholder = '' }: {
+  value: number | null; onChange: (v: number | null) => void; placeholder?: string
 }) {
   const [editing, setEditing] = useState(false)
-  const [raw, setRaw]         = useState('')
-
+  const [raw, setRaw] = useState('')
   const display = value != null ? Math.round(value).toLocaleString('en-US') : ''
-
   return (
-    <input
-      type="text"
-      inputMode="numeric"
-      className="form-input"
-      value={editing ? raw : display}
-      placeholder={placeholder}
+    <input type="text" inputMode="numeric" className="form-input"
+      value={editing ? raw : display} placeholder={placeholder}
       onFocus={() => { setEditing(true); setRaw(value?.toString() ?? '') }}
       onChange={e => { if (editing) setRaw(e.target.value) }}
       onBlur={() => {
         setEditing(false)
         const n = parseInt(raw.replace(/,/g, ''), 10)
         onChange(isNaN(n) ? null : n)
-      }}
-    />
+      }} />
   )
 }
 
-// ─── Calculated read-only field ───────────────────────────────────────────────
-function CalcField({ label, value, format = 'sf' }: { label: string; value: number; format?: 'sf' | 'usd' | 'pct' }) {
-  const display =
-    format === 'usd' ? `$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` :
-    format === 'pct' ? `${(value * 100).toFixed(2)}%` :
-    `$${value.toFixed(4)}`
-
+function CalcField({ label, value, format = 'sf' }: {
+  label: string; value: number; format?: 'sf' | 'usd'
+}) {
+  const display = format === 'usd'
+    ? `$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    : `$${value.toFixed(4)}`
   return (
     <div>
       <label className="form-label flex items-center gap-1.5">
@@ -91,18 +68,36 @@ function CalcField({ label, value, format = 'sf' }: { label: string; value: numb
   )
 }
 
-// ─── Layout helpers ───────────────────────────────────────────────────────────
 function Grid({ children, cols = 2 }: { children: React.ReactNode; cols?: 2 | 3 | 4 }) {
   const cls = cols === 3 ? 'grid grid-cols-1 md:grid-cols-3 gap-4'
             : cols === 4 ? 'grid grid-cols-2 md:grid-cols-4 gap-4'
             : 'grid grid-cols-1 md:grid-cols-2 gap-4'
   return <div className={cls}>{children}</div>
 }
+
 function F({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
       <label className="form-label">{label}</label>
       {children}
+    </div>
+  )
+}
+
+function Section({ id, num, title, children, isOpen, onToggle }: {
+  id: string; num: number; title: string; children: React.ReactNode
+  isOpen: boolean; onToggle: () => void
+}) {
+  return (
+    <div className="form-section">
+      <button type="button" onClick={onToggle} className="section-header w-full">
+        <div className="section-title">
+          <span className="section-num">{num}</span>
+          <span className="text-sm font-bold text-slate-800">{title}</span>
+        </div>
+        {isOpen ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+      </button>
+      {isOpen && <div className="section-body">{children}</div>}
     </div>
   )
 }
@@ -115,11 +110,12 @@ export default function ProjectForm({ project, mode }: Props) {
   const [saving, setSaving] = useState(false)
   const [error, setError]   = useState<string | null>(null)
 
-  const [open, setOpen] = useState<Record<string, boolean>>({
+  const [open, setOpen] = useState({
     general: true, team: true, location: true,
     building: false, dimensions: false, pricing: false,
   })
-  const toggle = (id: string) => setOpen(o => ({ ...o, [id]: !o[id] }))
+  const toggle = useCallback((id: string) =>
+    setOpen(o => ({ ...o, [id]: !o[id as keyof typeof o] })), [])
 
   const [form, setForm] = useState<Partial<ProjectInsert>>({
     project_name:           project?.project_name          ?? '',
@@ -153,7 +149,6 @@ export default function ProjectForm({ project, mode }: Props) {
     shaftwall_lf_per_level: project?.shaftwall_lf_per_level ?? null,
     truss_depth:            project?.truss_depth           ?? '',
     truss_spacing:          project?.truss_spacing         ?? '',
-    // Manual pricing inputs
     frame_lne_price:        project?.frame_lne_price       ?? null,
     frame_material:         project?.frame_material        ?? null,
     truss_price:            project?.truss_price           ?? null,
@@ -164,47 +159,32 @@ export default function ProjectForm({ project, mode }: Props) {
   const set = useCallback((key: keyof ProjectInsert, value: unknown) =>
     setForm(f => ({ ...f, [key]: value })), [])
 
-  // ─── Auto-calculated financial values ─────────────────────────────────────
   const calc = useMemo(() => {
-    const fs   = form.floor_sf      ?? 0
+    const fs   = form.floor_sf        ?? 0
     const flne = form.frame_lne_price ?? 0
     const fm   = form.frame_material  ?? 0
     const tp   = form.truss_price     ?? 0
     const slm  = form.siding_lm       ?? 0
     const co   = form.change_orders   ?? 0
-    const ssf  = form.siding_sf       ?? 0
-
-    const frame_lne_price_sf   = fs > 0 ? flne / fs : 0
-    const frame_material_sf    = fs > 0 ? fm   / fs : 0
-    const truss_sf             = fs > 0 ? tp   / fs : 0
-    const siding_lm_sf         = fs > 0 ? slm  / fs : 0
-    const total_price_sf       = frame_lne_price_sf + frame_material_sf + truss_sf + siding_lm_sf
+    const frame_lne_price_sf  = fs > 0 ? flne / fs : 0
+    const frame_material_sf   = fs > 0 ? fm   / fs : 0
+    const truss_sf            = fs > 0 ? tp   / fs : 0
+    const siding_lm_sf        = fs > 0 ? slm  / fs : 0
+    const total_price_sf      = frame_lne_price_sf + frame_material_sf + truss_sf + siding_lm_sf
     const total_contract_price = total_price_sf * fs
-    const contract_price_cos   = total_contract_price + co
-    const pct_siding_vs_floor  = fs > 0 ? ssf  / fs : 0
-
-    return {
-      frame_lne_price_sf,
-      frame_material_sf,
-      truss_sf,
-      siding_lm_sf,
-      total_price_sf,
-      total_contract_price,
-      contract_price_cos,
-      pct_siding_vs_floor,
-    }
-  }, [form.floor_sf, form.frame_lne_price, form.frame_material, form.truss_price,
-      form.siding_lm, form.change_orders, form.siding_sf])
+    const contract_price_cos  = total_contract_price + co
+    const pct_siding_vs_floor = fs > 0 ? (form.siding_sf ?? 0) / fs : 0
+    return { frame_lne_price_sf, frame_material_sf, truss_sf, siding_lm_sf,
+             total_price_sf, total_contract_price, contract_price_cos, pct_siding_vs_floor }
+  }, [form.floor_sf, form.frame_lne_price, form.frame_material,
+      form.truss_price, form.siding_lm, form.change_orders, form.siding_sf])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!form.project_name?.trim()) { setError('Project name is required.'); return }
     setSaving(true); setError(null)
     try {
-      const payload: ProjectInsert = {
-        ...(form as ProjectInsert),
-        ...calc,
-      }
+      const payload = { ...(form as ProjectInsert), ...calc }
       if (mode === 'create') {
         const p = await createProject(payload)
         router.push(`/projects/${p.id}`)
@@ -218,34 +198,13 @@ export default function ProjectForm({ project, mode }: Props) {
     }
   }
 
-  // ─── Section header component ─────────────────────────────────────────────
-  const Section = ({
-    id, num, title, children
-  }: { id: string; num: number; title: string; children: React.ReactNode }) => (
-    <div className="form-section">
-      <button type="button" onClick={() => toggle(id)} className="section-header w-full">
-        <div className="section-title">
-          <span className="section-num">{num}</span>
-          <span className="text-sm font-bold text-slate-800">{title}</span>
-        </div>
-        {open[id]
-          ? <ChevronUp className="w-4 h-4 text-slate-400" />
-          : <ChevronDown className="w-4 h-4 text-slate-400" />}
-      </button>
-      {open[id] && <div className="section-body">{children}</div>}
-    </div>
-  )
-
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {error && (
-        <div className="rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {error}
-        </div>
+        <div className="rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
       )}
 
-      {/* 1 ── Project Identification */}
-      <Section id="general" num={1} title="Project Identification">
+      <Section id="general" num={1} title="Project Identification" isOpen={open.general} onToggle={() => toggle('general')}>
         <F label="Project Name *">
           <input className="form-input" required
             value={form.project_name ?? ''}
@@ -254,8 +213,7 @@ export default function ProjectForm({ project, mode }: Props) {
         </F>
         <Grid cols={3}>
           <F label="Bid Result">
-            <select className="form-select"
-              value={form.client_response ?? ''}
+            <select className="form-select" value={form.client_response ?? ''}
               onChange={e => set('client_response', e.target.value || null)}>
               <option value="">— Not set —</option>
               <option>Won</option><option>Lost</option><option>Pending</option>
@@ -267,8 +225,7 @@ export default function ProjectForm({ project, mode }: Props) {
               onChange={e => set('year_completed', e.target.value ? parseInt(e.target.value) : null)} />
           </F>
           <F label="Contract Type">
-            <select className="form-select"
-              value={form.contract_type ?? ''}
+            <select className="form-select" value={form.contract_type ?? ''}
               onChange={e => set('contract_type', e.target.value || null)}>
               <option value="">— Select —</option>
               <option>Turn-Key</option><option>Labor</option>
@@ -277,8 +234,7 @@ export default function ProjectForm({ project, mode }: Props) {
         </Grid>
         <Grid>
           <F label="Date of Bid">
-            <input className="form-input" type="date"
-              value={form.date_of_bid ?? ''}
+            <input className="form-input" type="date" value={form.date_of_bid ?? ''}
               onChange={e => set('date_of_bid', e.target.value || null)} />
           </F>
           <F label="IDAPAC Index @ Bid Time">
@@ -288,8 +244,7 @@ export default function ProjectForm({ project, mode }: Props) {
         </Grid>
       </Section>
 
-      {/* 2 ── Project Team */}
-      <Section id="team" num={2} title="Project Team">
+      <Section id="team" num={2} title="Project Team" isOpen={open.team} onToggle={() => toggle('team')}>
         <Grid>
           <F label="Architect">
             <input className="form-input" placeholder="e.g. Dwell Design Studio"
@@ -309,8 +264,7 @@ export default function ProjectForm({ project, mode }: Props) {
         </F>
       </Section>
 
-      {/* 3 ── Location */}
-      <Section id="location" num={3} title="Location">
+      <Section id="location" num={3} title="Location" isOpen={open.location} onToggle={() => toggle('location')}>
         <Grid>
           <F label="City">
             <input className="form-input" placeholder="Oklahoma City"
@@ -325,8 +279,7 @@ export default function ProjectForm({ project, mode }: Props) {
         </Grid>
       </Section>
 
-      {/* 4 ── Building Specifications */}
-      <Section id="building" num={4} title="Building Specifications">
+      <Section id="building" num={4} title="Building Specifications" isOpen={open.building} onToggle={() => toggle('building')}>
         <Grid>
           <F label="Building Type">
             <input className="form-input" placeholder="Type VA, Type III, Type VB…"
@@ -341,8 +294,7 @@ export default function ProjectForm({ project, mode }: Props) {
         </Grid>
         <Grid cols={3}>
           <F label="Complexity">
-            <select className="form-select"
-              value={form.complexity ?? ''}
+            <select className="form-select" value={form.complexity ?? ''}
               onChange={e => set('complexity', e.target.value || null)}>
               <option value="">— Select —</option>
               <option>Easy</option><option>Medium</option><option>Hard</option>
@@ -368,14 +320,12 @@ export default function ProjectForm({ project, mode }: Props) {
             <input className="form-input" placeholder={`10'-4"`}
               value={form.wall_height ?? ''}
               onChange={e => set('wall_height', e.target.value)} />
-            <p className="text-[10px] text-slate-400 mt-1">Format: [ft]'-[in]"  e.g. 10'-4"</p>
+            <p className="text-[10px] text-slate-400 mt-1">Format: [ft]&apos;-[in]&quot; e.g. 10&apos;-4&quot;</p>
           </F>
           <F label="Clubhouse">
-            <select className="form-select"
-              value={form.clubhouse ? 'yes' : 'no'}
+            <select className="form-select" value={form.clubhouse ? 'yes' : 'no'}
               onChange={e => set('clubhouse', e.target.value === 'yes')}>
-              <option value="no">No</option>
-              <option value="yes">Yes</option>
+              <option value="no">No</option><option value="yes">Yes</option>
             </select>
           </F>
         </Grid>
@@ -398,8 +348,7 @@ export default function ProjectForm({ project, mode }: Props) {
         </F>
       </Section>
 
-      {/* 5 ── Dimensions & Quantities */}
-      <Section id="dimensions" num={5} title="Dimensions & Quantities">
+      <Section id="dimensions" num={5} title="Dimensions & Quantities" isOpen={open.dimensions} onToggle={() => toggle('dimensions')}>
         <Grid>
           <F label="Floor SF">
             <NumericInput value={form.floor_sf ?? null} decimals={2}
@@ -437,28 +386,22 @@ export default function ProjectForm({ project, mode }: Props) {
             <input className="form-input" placeholder={`22"`}
               value={form.truss_depth ?? ''}
               onChange={e => set('truss_depth', e.target.value)} />
-            <p className="text-[10px] text-slate-400 mt-1">Format: [ft]'-[in]"  e.g. 22"  or  1'-10"</p>
+            <p className="text-[10px] text-slate-400 mt-1">e.g. 22&quot; or 1&apos;-10&quot;</p>
           </F>
           <F label="Truss Spacing (ft-in)">
             <input className="form-input" placeholder={`24"`}
               value={form.truss_spacing ?? ''}
               onChange={e => set('truss_spacing', e.target.value)} />
-            <p className="text-[10px] text-slate-400 mt-1">Format: [ft]'-[in]"  e.g. 24"  or  2'-0"</p>
+            <p className="text-[10px] text-slate-400 mt-1">e.g. 24&quot; or 2&apos;-0&quot;</p>
           </F>
         </Grid>
       </Section>
 
-      {/* 6 ── Financial Data */}
-      <Section id="pricing" num={6} title="Financial Data">
+      <Section id="pricing" num={6} title="Financial Data" isOpen={open.pricing} onToggle={() => toggle('pricing')}>
         <div className="bg-orange-50 border border-orange-200 rounded px-4 py-3 text-xs text-orange-700 flex items-start gap-2">
           <Calculator className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
-          <span>
-            Enter the four base price amounts below. All <strong>AUTO</strong> fields calculate automatically
-            using <strong>Floor SF</strong> from section 5.
-          </span>
+          <span>Enter the four base amounts. All <strong>AUTO</strong> fields calculate using <strong>Floor SF</strong> from section 5.</span>
         </div>
-
-        {/* Manual inputs */}
         <div>
           <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">Manual Inputs</p>
           <Grid>
@@ -471,7 +414,7 @@ export default function ProjectForm({ project, mode }: Props) {
                 onChange={v => set('frame_material', v)} placeholder="3,060,000.00" />
             </F>
           </Grid>
-          <Grid cols={3} >
+          <Grid cols={3}>
             <F label="Truss Price ($)">
               <NumericInput value={form.truss_price ?? null} decimals={2}
                 onChange={v => set('truss_price', v)} placeholder="1,118,250.00" />
@@ -486,31 +429,26 @@ export default function ProjectForm({ project, mode }: Props) {
             </F>
           </Grid>
         </div>
-
-        {/* Auto-calculated */}
         <div>
           <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">Auto-Calculated</p>
           <Grid>
-            <CalcField label="Frame L, N, E Price / SF"    value={calc.frame_lne_price_sf}   />
-            <CalcField label="Frame Material / SF"         value={calc.frame_material_sf}    />
+            <CalcField label="Frame L, N, E Price / SF" value={calc.frame_lne_price_sf} />
+            <CalcField label="Frame Material / SF"      value={calc.frame_material_sf} />
           </Grid>
           <Grid>
-            <CalcField label="Truss / SF"                  value={calc.truss_sf}             />
-            <CalcField label="Siding L & M / SF"           value={calc.siding_lm_sf}         />
+            <CalcField label="Truss / SF"               value={calc.truss_sf} />
+            <CalcField label="Siding L & M / SF"        value={calc.siding_lm_sf} />
           </Grid>
           <Grid cols={3}>
-            <CalcField label="Total Price / SF"            value={calc.total_price_sf}       />
-            <CalcField label="Total Contract Price ($)"    value={calc.total_contract_price} format="usd" />
-            <CalcField label="Contract Price + CO's ($)"   value={calc.contract_price_cos}   format="usd" />
+            <CalcField label="Total Price / SF"          value={calc.total_price_sf} />
+            <CalcField label="Total Contract Price ($)"  value={calc.total_contract_price} format="usd" />
+            <CalcField label="Contract Price + CO's ($)" value={calc.contract_price_cos}   format="usd" />
           </Grid>
         </div>
       </Section>
 
-      {/* Actions */}
       <div className="flex justify-end gap-3 pt-2">
-        <button type="button" onClick={() => router.back()} className="btn-secondary">
-          Cancel
-        </button>
+        <button type="button" onClick={() => router.back()} className="btn-secondary">Cancel</button>
         <button type="submit" disabled={saving} className="btn-primary px-6">
           <Save className="w-4 h-4" />
           {saving ? 'Saving…' : mode === 'create' ? 'Create Project' : 'Save Changes'}

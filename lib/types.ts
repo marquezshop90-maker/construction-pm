@@ -62,3 +62,15 @@ export interface DashboardStats {
   avg_value: number
   win_rate: number
 }
+
+export interface BudgetItem {
+  id: string
+  project_id: string
+  description: string | null
+  type: string | null
+  price_per: number | null
+  qty: number | null
+  total: number | null
+  sort_order: number
+  created_at: string
+}
