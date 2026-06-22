@@ -6,8 +6,6 @@ import { Search } from 'lucide-react'
 
 const fmtUSD = (n: number | null) =>
   n != null ? `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'
-const fmtNum = (n: number | null) =>
-  n != null ? n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'
 
 const TYPE_ORDER = ['Material','Labor','Install','Install - Primed','Equip-Material','Equipment','Financial']
 const TYPE_COLORS: Record<string, string> = {
@@ -20,25 +18,16 @@ const TYPE_COLORS: Record<string, string> = {
   'Financial':        'bg-slate-50 text-slate-600 border-slate-200',
 }
 
-function SummaryCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="bg-white rounded-lg border border-slate-200 p-4 shadow-sm">
-      <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-1">{label}</p>
-      <p className="text-lg font-black text-slate-900">{value}</p>
-    </div>
-  )
-}
-
 export default function BudgetsView({
   projects
 }: {
   projects: { id: string; project_name: string }[]
 }) {
-  const [selectedId, setSelectedId]       = useState<string>('')
-  const [search, setSearch]               = useState('')
-  const [items, setItems]                 = useState<BudgetItem[]>([])
-  const [project, setProject]             = useState<Partial<Project> | null>(null)
-  const [loading, setLoading]             = useState(false)
+  const [selectedId, setSelectedId]   = useState<string>('')
+  const [search, setSearch]           = useState('')
+  const [items, setItems]             = useState<BudgetItem[]>([])
+  const [project, setProject]         = useState<Partial<Project> | null>(null)
+  const [loading, setLoading]         = useState(false)
 
   const filtered = useMemo(() =>
     projects.filter(p => p.project_name.toLowerCase().includes(search.toLowerCase())),
@@ -75,7 +64,6 @@ export default function BudgetsView({
   })
 
   const grandTotal = items.reduce((s, i) => s + (i.total ?? 0), 0)
-
   const selected = projects.find(p => p.id === selectedId)
 
   return (
@@ -118,26 +106,13 @@ export default function BudgetsView({
       {/* Content */}
       {!loading && selectedId && project && (
         <>
+          {/* Project header */}
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-black text-slate-900">{selected?.project_name}</h2>
             <span className={
               project.client_response === 'Won'  ? 'badge-won' :
               project.client_response === 'Lost' ? 'badge-lost' : 'badge-pending'
             }>{project.client_response ?? 'Pending'}</span>
-          </div>
-
-          {/* Summary cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
-            <SummaryCard label="Floor SF"              value={fmtNum(project.floor_sf ?? null)} />
-            <SummaryCard label="Siding SF"             value={fmtNum(project.siding_sf ?? null)} />
-            <SummaryCard label="Windows"               value={project.windows?.toLocaleString() ?? '—'} />
-            <SummaryCard label="Patio Doors"           value={project.patio_doors?.toLocaleString() ?? '—'} />
-            <SummaryCard label="Shaftwall LF/Level"    value={fmtNum(project.shaftwall_lf_per_level ?? null)} />
-            <SummaryCard label="Frame L,N,E Price"     value={fmtUSD(project.frame_lne_price ?? null)} />
-            <SummaryCard label="Frame Material"        value={fmtUSD(project.frame_material ?? null)} />
-            <SummaryCard label="Truss Price"           value={fmtUSD(project.truss_price ?? null)} />
-            <SummaryCard label="Siding L&M"            value={fmtUSD(project.siding_lm ?? null)} />
-            <SummaryCard label="Total Contract"        value={fmtUSD(project.total_contract_price ?? null)} />
           </div>
 
           {/* No budget items */}

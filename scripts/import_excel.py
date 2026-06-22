@@ -205,7 +205,7 @@ def run(path):
         }
 
         try:
-            res = client.table('projects').upsert(project, on_conflict='project_name').execute()
+            res = client.table('projects').insert(project).execute()
             project_id = res.data[0]['id'] if res.data else None
             projects_imported += 1
             print(f"  ✓ Project: {name}")
@@ -236,3 +236,4 @@ if __name__ == '__main__':
         print("Usage: python scripts/import_excel.py <path_to_xlsm>")
         sys.exit(1)
     run(sys.argv[1])
+
