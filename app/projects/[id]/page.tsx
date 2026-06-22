@@ -61,7 +61,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
             <p className="text-slate-400 text-sm mt-1">
               {[project.city, project.state].filter(Boolean).join(', ')}
               {project.gc && ` · ${project.gc}`}
-              {project.date_of_bid && ` · Bid: ${new Date(project.date_of_bid).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`}
+              {project.date_of_bid && ` · Bid: ${new Date(project.date_of_bid + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`}
             </p>
           </div>
           <div className="flex gap-2 flex-shrink-0">
@@ -93,7 +93,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <Card title="Project Identification">
           <Row label="Year Completed" value={project.year_completed} />
-          <Row label="Date of Bid" value={project.date_of_bid ? new Date(project.date_of_bid).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : null} />
+          <Row label="Date of Bid" value={project.date_of_bid ? new Date(project.date_of_bid + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : null} />
           <Row label="IDAPAC Index" value={project.idapac_index?.toLocaleString('en-US')} />
           <Row label="Contract Type" value={project.contract_type} />
         </Card>
